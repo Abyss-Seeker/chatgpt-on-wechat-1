@@ -14,6 +14,11 @@ class WechatMessage(ChatMessage):
         self.create_time = itchat_msg["CreateTime"]
         self.is_group = is_group
 
+        notes_join_group = ["加入群聊"，"加入了群聊", "invited"]  #可通过添加对应语言的加入群聊通知中的关键词适配更多
+        notes_exit_group = ["移出了群聊", "removed"]  #可通过添加对应语言的踢出群聊通知中的关键词适配更多
+        notes_patpat = ["拍了拍我", "tickled my", "tickled me"] #可通过添加对应语言的拍一拍通知中的关键词适配更多
+        
+
         if itchat_msg["Type"] == TEXT:
             self.ctype = ContextType.TEXT
             self.content = itchat_msg["Text"]
@@ -26,9 +31,9 @@ class WechatMessage(ChatMessage):
             self.content = TmpDir().path() + itchat_msg["FileName"]  # content直接存临时目录路径
             self._prepare_fn = lambda: itchat_msg.download(self.content)
         elif itchat_msg["Type"] == NOTE and itchat_msg["MsgType"] == 10000:
-            if is_group and ("加入群聊" in itchat_msg["Content"] or "加入了群聊" in itchat_msg["Content"]):
+            if is_group and (any(note_join_group in itchat_msg["Content"] for note_join_group in notes_join_group)):  # 若有任何在notes_join_group列表中的字符串出现在NOTE中
                 # 这里只能得到nickname， actual_user_id还是机器人的id
-                if "加入了群聊" in itchat_msg["Content"]:
+                if "加入群聊" not in itchat_msg["Content"]:
                     self.ctype = ContextType.JOIN_GROUP
                     self.content = itchat_msg["Content"]
                     self.actual_user_nickname = re.findall(r"\"(.*?)\"", itchat_msg["Content"])[-1]
@@ -37,7 +42,7 @@ class WechatMessage(ChatMessage):
                     self.content = itchat_msg["Content"]
                     self.actual_user_nickname = re.findall(r"\"(.*?)\"", itchat_msg["Content"])[0]
 
-            elif is_group and ("移出了群聊" in itchat_msg["Content"]):
+            elif is_group and (any(note_exit_group in itchat_msg["Content"] for note_exit_group in notes_exit_group)):  # 若有任何在notes_exit_group列表中的字符串出现在NOTE中
                 self.ctype = ContextType.EXIT_GROUP
                 self.content = itchat_msg["Content"]
                 self.actual_user_nickname = re.findall(r"\"(.*?)\"", itchat_msg["Content"])[0]
@@ -45,7 +50,7 @@ class WechatMessage(ChatMessage):
             elif "你已添加了" in itchat_msg["Content"]:  #通过好友请求
                 self.ctype = ContextType.ACCEPT_FRIEND
                 self.content = itchat_msg["Content"]
-            elif "拍了拍我" in itchat_msg["Content"]:
+            elif any(note_patpat in itchat_msg["Content"] for note_patpat in notes_patpat) in itchat_msg["Content"]:  # 若有任何在notes_patpat列表中的字符串出现在NOTE中
                 self.ctype = ContextType.PATPAT
                 self.content = itchat_msg["Content"]
                 if is_group:
